@@ -57,7 +57,10 @@ resolve_archive() {
   extracted="$src"
   if [[ "$src" == *.tar.gz || "$src" == *.tgz ]]; then
     tmp="$(mktemp -d)"
-    tar -xzf "$src" -C "$tmp"
+    # --force-local: without it, tar treats a Windows path's drive-letter
+    # colon (C:\...) as a "host:path" remote-tar address and tries to
+    # resolve "C" as a hostname instead of extracting the local file.
+    tar -xzf "$src" -C "$tmp" --force-local
     extracted="$tmp/$(ls "$tmp" | head -n 1)"
   fi
 }
@@ -175,7 +178,9 @@ substitution pattern (":" and path separators -> "-"). This is a best-effort
 workaround, not guaranteed — verify it worked before relying on it.
 EOF
 
-  tar -czf "$out.tar.gz" -C "$(dirname "$out")" "$(basename "$out")"
+  # --force-local: see resolve_archive() above - same Windows drive-letter
+  # gotcha applies here when $out is a native Windows path.
+  tar -czf "$out.tar.gz" -C "$(dirname "$out")" "$(basename "$out")" --force-local
   local size
   size="$(du -sh "$out.tar.gz" | cut -f1)"
   rm -rf "$out"
