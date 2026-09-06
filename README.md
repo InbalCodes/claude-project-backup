@@ -108,6 +108,10 @@ repo).
   config (`settings.json`, `plugins/`) into a `.tar.gz` you move yourself
   (USB drive, a cloud folder you control) — **never through GitHub**, since
   transcripts can contain anything you've ever typed or read into a session.
+  Each project's per-session `~/.claude/file-history/<id>/` (Edit-tool file
+  version history) and `~/.claude/session-env/<id>/` ride along automatically
+  — without them, a restored session resumes fine but the desktop app's
+  "Files" panel shows empty for it.
 - `import <archive> <items>` — restores selected items on the new machine.
   Never overwrites an existing file — safe to run early, safe to re-run.
 - Deliberately **never** touches `~/.claude/.credentials.json` (your login

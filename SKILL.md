@@ -133,6 +133,15 @@ Items are selected as `p:<name>` (a project, from `list-projects`), `s:<name>`
 (a skill, from `list-skills`), or `c:<name>` (global config, `settings` or
 `plugins`, from `list-config`).
 
+Selecting a project (`p:<name>`) also automatically carries along, per
+session found in it, `~/.claude/file-history/<session-id>/` (Edit-tool file
+version history) and `~/.claude/session-env/<session-id>/` — neither lives
+under `~/.claude/projects/`, so a plain copy of the project folder alone
+misses them. Without this, a restored session resumes fine in the terminal
+but the desktop app's "Files" panel shows empty for it, even for files
+created *during* the resumed session — this isn't optional/skippable, it's
+handled automatically whenever a project is selected.
+
 `c:settings` is `~/.claude/settings.json` (permissions, allowed-tools,
 theme, marketplaces) and `c:plugins` is `~/.claude/plugins/` (installed
 plugins + local marketplace sources) — both are small, non-secret, and
