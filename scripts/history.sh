@@ -2,8 +2,10 @@
 # project-backup history: list-projects | list-skills | list-config | export | list-archive | import
 #
 # One-time migration helper for Claude Code's local conversation history
-# (~/.claude/projects), custom skills (~/.claude/skills), and select global
-# config (~/.claude/settings.json, ~/.claude/plugins) between machines.
+# (~/.claude/projects, plus each session's ~/.claude/file-history and
+# ~/.claude/session-env - see copy_session_aux_dirs), custom skills
+# (~/.claude/skills), and select global config (~/.claude/settings.json,
+# ~/.claude/plugins) between machines.
 # Deliberately does NOT touch ~/.claude/.credentials.json, ~/.claude.json
 # (mixes account/telemetry/cache state with per-project data, not portable
 # as a whole), or anything else in ~/.claude — only the explicitly allowlisted
@@ -47,6 +49,42 @@ list_subfolders() {
 
 cmd_list_projects() { list_subfolders "$CLAUDE_DIR/projects"; }
 cmd_list_skills() { list_subfolders "$CLAUDE_DIR/skills"; }
+
+# Prints one session id per line for a project dir (jsonl basenames minus
+# extension), skipping agent-*.jsonl subagent transcripts which aren't
+# real top-level sessions and have no file-history/session-env of their own.
+session_ids_for_project() {
+  local proj_dir="$1"
+  [ -d "$proj_dir" ] || return 0
+  local f base
+  for f in "$proj_dir"/*.jsonl; do
+    [ -e "$f" ] || continue
+    base="$(basename "$f" .jsonl)"
+    case "$base" in agent-*) continue ;; esac
+    printf '%s\n' "$base"
+  done
+}
+
+# Copies file-history/<id> and session-env/<id> for every session in a
+# project, alongside its transcript - these aren't stored under
+# ~/.claude/projects/ at all, so a plain copy of the project folder alone
+# misses them (this is what left the desktop app's "Files" panel empty
+# for restored sessions, discovered 2026-09-06).
+copy_session_aux_dirs() {
+  local base_src="$1" base_dest="$2" proj_dir="$3"
+  local id
+  while IFS= read -r id; do
+    [ -z "$id" ] && continue
+    if [ -d "$base_src/file-history/$id" ] && [ ! -e "$base_dest/file-history/$id" ]; then
+      mkdir -p "$base_dest/file-history"
+      cp -a "$base_src/file-history/$id" "$base_dest/file-history/$id"
+    fi
+    if [ -d "$base_src/session-env/$id" ] && [ ! -e "$base_dest/session-env/$id" ]; then
+      mkdir -p "$base_dest/session-env"
+      cp -a "$base_src/session-env/$id" "$base_dest/session-env/$id"
+    fi
+  done < <(session_ids_for_project "$proj_dir")
+}
 
 # Resolves an archive-or-dir source into $extracted (a plain directory),
 # extracting to a temp dir into $tmp if $src was a .tar.gz/.tgz. Caller must
@@ -98,6 +136,7 @@ cmd_export() {
       p)
         if [ -d "$CLAUDE_DIR/projects/$name" ]; then
           cp -a "$CLAUDE_DIR/projects/$name" "$out/projects/$name"
+          copy_session_aux_dirs "$CLAUDE_DIR" "$out" "$CLAUDE_DIR/projects/$name"
           echo "[included] project: $name"
           any=1
         else
@@ -145,13 +184,20 @@ cmd_export() {
 Claude Code migration export
 =============================
 Contents (only what was explicitly selected at export time):
-  projects/  - local conversation history (session transcripts + memory) for
-               the selected projects, named after each project's absolute
-               path on THIS machine (':' and '/' or '\' replaced with '-').
-  skills/    - the selected custom skills.
-  config/    - selected global config: settings.json (permissions, theme,
-               marketplaces) and/or plugins/ (installed plugins + local
-               marketplace sources).
+  projects/      - local conversation history (session transcripts + memory)
+                   for the selected projects, named after each project's
+                   absolute path on THIS machine (':' and '/' or '\'
+                   replaced with '-').
+  file-history/  - per-session Edit-tool file version history, for every
+                   session found in a selected project. Not stored under
+                   ~/.claude/projects/ - without this, the desktop app's
+                   "Files" panel shows empty for a restored session even
+                   though the conversation itself resumes fine.
+  session-env/   - per-session environment snapshots, same reasoning.
+  skills/        - the selected custom skills.
+  config/        - selected global config: settings.json (permissions, theme,
+                   marketplaces) and/or plugins/ (installed plugins + local
+                   marketplace sources).
 
 Deliberately NOT included, ever: ~/.claude/.credentials.json (the Claude
 Code login token — on the new machine just log in again, your account and
@@ -159,8 +205,8 @@ subscription carry over automatically) and ~/.claude.json (mixes account
 metadata, telemetry, and feature-flag caches with per-project trust state;
 not meaningful to copy wholesale — on the new machine you'll just need to
 re-approve the trust dialog the first time you open each project, which is
-normal). Also not included: cache, telemetry, debug, ide, session-env,
-shell-snapshots, and anything not explicitly selected.
+normal). Also not included: cache, telemetry, debug, ide, shell-snapshots,
+todos, and anything not explicitly selected.
 
 To restore on the new machine, run:
   bash history.sh list-archive <this-folder-or-its-.tar.gz>
@@ -240,6 +286,9 @@ cmd_import() {
     else
       cp -a "$src_path" "$dest_path"
       echo "[restored] $label $name"
+      if [ "$kind" = "p" ]; then
+        copy_session_aux_dirs "$extracted" "$CLAUDE_DIR" "$dest_path"
+      fi
     fi
   done
 
