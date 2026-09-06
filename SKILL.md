@@ -264,11 +264,17 @@ export`/`history import`, it sequences them.
    - Per restored project, output a numbered manual instruction block —
      this step cannot be run by the agent, `--resume`'s interactive
      picker doesn't work headless: open a terminal in the project folder
-     → `claude --resume` → choose "Resume from summary" (or whichever
-     prompt appears) → keep the desktop app open while doing this →
-     after closing the terminal, an auto-archive toast appears in the
-     app — click **Undo** on it to keep the session pinned (no CLI
-     equivalent exists).
+     → `claude --resume` (or `claude attach <id>` if it was backgrounded)
+     → this makes the session appear live in the desktop app for as long
+     as that CLI process keeps running. **This is not a one-time fix —
+     it does not become permanent.** Closing the terminal (or `claude
+     stop`-ing a background session) always makes it disconnect or
+     vanish from the sidebar again; reopening it the same way always
+     brings it back. Tell the user this plainly rather than implying a
+     toast/undo dance makes it stick — five controlled tests (foreground
+     open/closed, `--bg` running/`stop`-ed, then `claude attach`) all
+     confirmed sidebar visibility tracks a live process, full stop, with
+     no way found to detach it from that requirement.
    - Print the "Known upstream limitations" block below verbatim so the
      user has accurate expectations.
 8. **Final summary.** Extend the usual summarize-by-outcome convention
@@ -289,8 +295,24 @@ via anthropics/claude-code issues **#90423**, **#81835**, **#89781**
 `claude project` only has `purge` (which deletes state, the opposite of
 what's needed) — and resumed sessions land under "Other" in the sidebar
 grouping rather than their project's group, a separate confirmed bug
-(#89781). Quote these facts consistently rather than re-investigating
-each run.
+(#89781).
+
+**A migrated session's sidebar visibility is never permanent — it always
+requires a currently-live CLI process, and there is no way found to
+change that.** Tested five ways on a real MSIX-installed Windows build
+(foreground `--resume` open/closed, `--bg` background session
+running/`claude stop`-ed, then `claude attach`): every state where the
+underlying process is alive shows the session as connected and usable;
+every state where it isn't shows it disconnected (foreground close) or
+removed from the sidebar entirely (`claude stop`) — `claude attach`/
+`claude --resume` always brings it back immediately. The `.jsonl`
+content itself is never at risk either way. Don't tell the user an
+archive-undo or any other one-time action makes this stick — it doesn't.
+The correct, durable guidance is: reconnect via `claude --resume <id>` /
+`claude attach <id>` each time they want to view or continue an old
+migrated conversation in the app, and expect it to disconnect again
+once that process ends — that's normal, not a failure. Quote these
+facts consistently rather than re-investigating each run.
 
 `migrate_gui.ps1` additionally offers an **experimental, opt-in, third-party**
 path: `scripts/vendor/claude-code-export-import/` (vendored from

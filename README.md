@@ -142,9 +142,19 @@ it's confirmed, unresolved, upstream behavior:
 **What this project does about it, honestly:**
 
 1. **The supported path**: a printed, step-by-step manual workaround — open
-   a terminal in the project folder, run `claude --resume`, and (after
-   closing the terminal) click **Undo** on the auto-archive toast the app
-   shows. This works, is fully manual, and is the default.
+   a terminal in the project folder and run `claude --resume` (or `claude
+   attach <id>` if it's a background session). This makes the conversation
+   show up live in the desktop app for as long as that process keeps
+   running — **not permanently**. Five separate tests (foreground open vs.
+   closed, `--bg` running vs. `claude stop`-ed, then re-attached) all
+   confirmed sidebar visibility tracks a live CLI process with no
+   exception found: close the terminal and it disconnects; `claude stop` a
+   background session and it disappears from the sidebar entirely; either
+   way, `claude --resume`/`claude attach` brings it right back. Nothing
+   about this — including "undo" on an archive-toast the app may show — makes
+   it stick. Treat reconnecting as the normal way to use an old migrated
+   conversation, not a one-time fix. Your transcript data itself is never
+   at risk either way — only the app's sidebar convenience is ephemeral.
 2. **An experimental, opt-in, third-party path**: `scripts/vendor/claude-code-export-import/`
    vendors [Dangelo123/claude-code-export-import](https://github.com/Dangelo123/claude-code-export-import)
    (MIT), which goes further — it copies the app's `local_*.json` records,
